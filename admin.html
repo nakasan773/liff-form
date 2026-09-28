@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>ヌルっとバドミントン 主催メニュー</title>
-<link rel="stylesheet" href="style.css?v=4">
+<title>ラクっとバドミントン 主催メニュー</title>
+<link rel="stylesheet" href="style.css?v=5">
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script src="qrcode.js?v=4"></script>
-<script src="config.js?v=4"></script>
-<script src="common.js?v=4"></script>
+<script src="qrcode.js?v=5"></script>
+<script src="config.js?v=5"></script>
+<script src="common.js?v=5"></script>
 </head>
 <body>
 <header class="top admin">
@@ -147,7 +147,7 @@
     return JSON.stringify({
       v: 1,
       e: { id: data.event.external_event_id, d: data.event.date, s: data.event.start, t: data.event.end, p: data.event.place },
-      m: data.participants.map((p) => [p.id, p.name, g[p.gender] || 'n', p.experience === 'experienced' ? (y[p.experience_years] || 0) : 0]),
+      m: data.participants.map((p) => [p.id, p.display_name, g[p.gender] || 'n', p.experience === 'experienced' ? (y[p.experience_years] || 0) : 0]),
     });
   }
 
@@ -191,7 +191,7 @@
         exportCache = { eventId: id, data };
         $('ex-summary').innerHTML = `<b>${data.participants.length}人</b>の参加者を送ります。<br>ファイル名：${esc(fileNameOf(data))}`;
         $('ex-list').innerHTML = data.participants.map((p) => `
-          <div class="person"><div class="name">${esc(p.name)}</div>
+          <div class="person"><div class="name">${esc(p.display_name)} <span class="muted">${esc(p.name)}</span></div>
           <div class="hobby">${{ male: '男性', female: '女性', none: '—' }[p.gender]} ・ ${p.experience === 'experienced' ? '経験者' : '未経験'}</div></div>`).join('');
         $('ex-airdrop').disabled = $('ex-qr').disabled = false;
       } catch (e) { showError(e.message); }
@@ -225,7 +225,7 @@
         qr.make();
         area.innerHTML = `<div class="card"><h2>iPad のカメラで読み取り</h2>
           <div class="qr">${qr.createSvgTag(4, 8)}</div>
-          <div class="muted">QRには氏名・性別・経験のみを入れています（趣味は含みません）。</div></div>`;
+          <div class="muted">QRにはニックネーム・性別・経験のみを入れています（姓名と趣味は含みません）。</div></div>`;
         area.scrollIntoView({ behavior: 'smooth' });
       } catch (e) {
         area.innerHTML = '<div class="msg err">参加者が多く、QRコード1枚に収まりません。AirDrop を使ってください。</div>';
@@ -246,9 +246,9 @@
         <h2>登録者</h2><div><span class="count-badge">${people.length}</span> 人</div>
       </div>
       <div class="table-wrap"><table>
-        <thead><tr><th>氏名</th><th>性別</th><th>経験</th><th>参加</th><th>最終参加</th></tr></thead>
+        <thead><tr><th>ニックネーム</th><th>氏名</th><th>性別</th><th>経験</th><th>参加</th><th>最終参加</th></tr></thead>
         <tbody>${people.map((p) => `<tr>
-          <td>${esc(p.name)}</td><td>${genderTag(p.gender)}</td>
+          <td><b>${esc(p.nickname)}</b></td><td>${esc(p.name)}</td><td>${genderTag(p.gender)}</td>
           <td>${esc(p.experience === '経験者' ? p.years : '未経験')}</td>
           <td class="num">${p.count}回</td><td>${p.last ? esc(day(p.last)) : '—'}</td></tr>`).join('')}</tbody>
       </table></div>
