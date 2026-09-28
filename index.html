@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>参加登録</title>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root {
+    --green: #1F5E4A; --ink: #1B1F1D; --sub: #5C625E; --line: #CFCAC0;
+    --bg: #F4F1EA; --warn: #B5541A;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Hiragino Sans", "Noto Sans JP", sans-serif;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  header { background: var(--green); color: #fff; padding: 24px 20px 18px; }
+  header .club { font-size: 13px; opacity: .9; }
+  header h1 { margin: 4px 0 2px; font-size: 22px; }
+  header p { margin: 0; font-size: 14px; }
+  main { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  .label { font-size: 14px; font-weight: 700; }
+  .req { color: var(--warn); font-weight: 500; }
+  .opt { color: var(--sub); font-weight: 500; }
+  input[type=text], textarea {
+    width: 100%; font-size: 16px; font-family: inherit; padding: 12px 14px;
+    border: 1.5px solid var(--line); border-radius: 10px; background: #fff;
+  }
+  textarea { height: 80px; resize: none; }
+  .choices { display: grid; gap: 8px; }
+  .c2 { grid-template-columns: repeat(2, 1fr); }
+  .c3 { grid-template-columns: repeat(3, 1fr); }
+  .choices input { position: absolute; opacity: 0; pointer-events: none; }
+  .choices label {
+    display: flex; align-items: center; justify-content: center; min-height: 46px;
+    border: 1.5px solid var(--line); border-radius: 10px; background: #fff;
+    font-size: 15px; cursor: pointer;
+  }
+  .choices input:checked + label { background: var(--green); border-color: var(--green); color: #fff; font-weight: 700; }
+  .choices input:focus-visible + label { outline: 3px solid #E0853F; }
+  .counter { font-size: 12px; color: var(--sub); text-align: right; }
+  button.primary {
+    height: 54px; border: none; border-radius: 12px; background: var(--green); color: #fff;
+    font-size: 17px; font-weight: 700; font-family: inherit;
+  }
+  button.primary:disabled { opacity: .5; }
+  .note { font-size: 12px; color: var(--sub); line-height: 1.6; text-align: center; }
+  .msg { padding: 12px 14px; border-radius: 10px; font-size: 14px; font-weight: 700; }
+  .msg.err { background: #FBE7D6; color: #8A3A10; }
+  .msg.ok { background: #E3EEE8; color: #15443A; }
+  .hidden { display: none !important; }
+  #loading { padding: 60px 20px; text-align: center; color: var(--sub); }
+</style>
+</head>
+<body>
+<header>
+  <div class="club">[サークル名]</div>
+  <h1>参加者登録</h1>
+  <p id="greeting">30秒で終わります</p>
+</header>
+
+<div id="loading">読み込み中…</div>
+
+<main id="form" class="hidden">
+  <div id="error" class="msg err hidden"></div>
+
+  <div class="field">
+    <label class="label" for="name">氏名（表示名）<span class="req"> 必須</span></label>
+    <input id="name" type="text" maxlength="30" placeholder="例：山田 健" autocomplete="name">
+  </div>
+
+  <div class="field">
+    <div class="label">性別<span class="req"> 必須</span></div>
+    <div class="choices c3">
+      <input type="radio" name="gender" id="g1" value="男性"><label for="g1">男性</label>
+      <input type="radio" name="gender" id="g2" value="女性"><label for="g2">女性</label>
+      <input type="radio" name="gender" id="g3" value="回答しない"><label for="g3">回答しない</label>
+    </div>
+  </div>
+
+  <div class="field">
+    <div class="label">バドミントン経験<span class="req"> 必須</span></div>
+    <div class="choices c2">
+      <input type="radio" name="experience" id="e1" value="経験者"><label for="e1">経験者</label>
+      <input type="radio" name="experience" id="e2" value="未経験"><label for="e2">未経験</label>
+    </div>
+  </div>
+
+  <div class="field hidden" id="yearsField">
+    <div class="label">経験年数<span class="req"> 必須</span></div>
+    <div class="choices c2">
+      <input type="radio" name="years" id="y1" value="1年未満"><label for="y1">1年未満</label>
+      <input type="radio" name="years" id="y2" value="1〜3年"><label for="y2">1〜3年</label>
+      <input type="radio" name="years" id="y3" value="3〜5年"><label for="y3">3〜5年</label>
+      <input type="radio" name="years" id="y4" value="5年以上"><label for="y4">5年以上</label>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="label" for="hobby">趣味・ひとこと<span class="opt"> 任意</span></label>
+    <textarea id="hobby" maxlength="100" placeholder="例：キャンプ、ラーメン巡り"></textarea>
+    <div class="counter"><span id="count">0</span> / 100</div>
+  </div>
+
+  <button id="submit" class="primary" type="button">登録する</button>
+  <p class="note">氏名・性別・趣味は当日の参加者に表示されます。<br>経験年数は組み合わせにのみ使います。</p>
+</main>
+
+<main id="done" class="hidden">
+  <div class="msg ok">登録しました。ありがとうございます！</div>
+  <p class="note">内容を変えたいときは、もう一度リッチメニューから開いてください。</p>
+  <button id="close" class="primary" type="button">閉じる</button>
+</main>
+
+<script>
+  // ▼ ここを自分の値に書き換える
+  const LIFF_ID = 'ここにLIFF IDを貼る';           // 例: 2001234567-AbCdEfGh
+  const GAS_URL = 'ここにGASのウェブアプリURLを貼る'; // 例: https://script.google.com/macros/s/xxxx/exec
+  // ▲
+
+  const $ = (id) => document.getElementById(id);
+  const val = (name) => (document.querySelector(`input[name="${name}"]:checked`) || {}).value || '';
+  const check = (name, v) => {
+    const el = document.querySelector(`input[name="${name}"][value="${v}"]`);
+    if (el) el.checked = true;
+  };
+
+  // GAS へ送信。Content-Type を text/plain にすると CORS の事前確認が起きず、GAS でも受け取れる
+  async function callGas(payload) {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+    });
+    return res.json();
+  }
+
+  function showError(text) {
+    $('error').textContent = text;
+    $('error').classList.remove('hidden');
+    window.scrollTo(0, 0);
+  }
+
+  function toggleYears() {
+    $('yearsField').classList.toggle('hidden', val('experience') !== '経験者');
+  }
+
+  async function main() {
+    try {
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) {
+        liff.login(); // LINE 外のブラウザで開いた場合
+        return;
+      }
+
+      const profile = await liff.getProfile();
+      $('greeting').textContent = `${profile.displayName} さん、こんにちは`;
+
+      // 登録済みなら前回の内容を入れておく
+      const res = await callGas({ action: 'get', idToken: liff.getIDToken() });
+      if (res.ok && res.record) {
+        const r = res.record;
+        $('name').value = r.name;
+        check('gender', r.gender);
+        check('experience', r.experience);
+        if (r.years) check('years', r.years);
+        $('hobby').value = r.hobby;
+        $('submit').textContent = '内容を更新する';
+      } else if (!res.ok) {
+        showError(res.error);
+      }
+
+      toggleYears();
+      $('count').textContent = $('hobby').value.length;
+      $('loading').classList.add('hidden');
+      $('form').classList.remove('hidden');
+    } catch (e) {
+      $('loading').textContent = '読み込みに失敗しました。LINEアプリから開き直してください。';
+      console.error(e);
+    }
+  }
+
+  document.querySelectorAll('input[name="experience"]').forEach((el) => el.addEventListener('change', toggleYears));
+  $('hobby').addEventListener('input', () => { $('count').textContent = $('hobby').value.length; });
+
+  $('submit').addEventListener('click', async () => {
+    const data = {
+      name: $('name').value.trim(),
+      gender: val('gender'),
+      experience: val('experience'),
+      years: val('years'),
+      hobby: $('hobby').value.trim(),
+    };
+    // 画面側の簡易チェック（最終チェックは GAS 側で行う）
+    if (!data.name) return showError('氏名を入力してください');
+    if (!data.gender) return showError('性別を選択してください');
+    if (!data.experience) return showError('経験の有無を選択してください');
+    if (data.experience === '経験者' && !data.years) return showError('経験年数を選択してください');
+
+    $('submit').disabled = true;
+    $('submit').textContent = '送信中…';
+    try {
+      const res = await callGas({ action: 'save', idToken: liff.getIDToken(), data });
+      if (!res.ok) throw new Error(res.error);
+      $('form').classList.add('hidden');
+      $('done').classList.remove('hidden');
+    } catch (e) {
+      showError(e.message || '送信に失敗しました。電波の良い場所でもう一度お試しください');
+      $('submit').disabled = false;
+      $('submit').textContent = '登録する';
+    }
+  });
+
+  $('close').addEventListener('click', () => {
+    if (liff.isInClient()) liff.closeWindow();
+  });
+
+  main();
+</script>
+</body>
+</html>
