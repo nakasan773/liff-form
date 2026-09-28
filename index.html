@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ヌルっとバドミントン</title>
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script src="config.js?v=4"></script>
-<script src="common.js?v=4"></script>
+<script src="config.js?v=5"></script>
+<script src="common.js?v=5"></script>
 </head>
 <body>
 <header class="top">
@@ -57,9 +57,20 @@
     return `
     <div class="card">
       ${lead ? `<div class="muted">${lead}</div>` : ''}
+      <div class="row2">
+        <div class="field">
+          <label class="label" for="f-sei">姓（苗字）<span class="req"> 必須</span></label>
+          <input id="f-sei" type="text" maxlength="15" placeholder="例：山田" autocomplete="family-name" value="${esc(p.sei || '')}">
+        </div>
+        <div class="field">
+          <label class="label" for="f-mei">名（名前）<span class="req"> 必須</span></label>
+          <input id="f-mei" type="text" maxlength="15" placeholder="例：健" autocomplete="given-name" value="${esc(p.mei || '')}">
+        </div>
+      </div>
       <div class="field">
-        <label class="label" for="f-name">氏名（フルネーム）<span class="req"> 必須</span></label>
-        <input id="f-name" type="text" maxlength="30" placeholder="例：山田 健" autocomplete="name" value="${esc(p.name || '')}">
+        <label class="label" for="f-nick">ニックネーム<span class="req"> 必須</span></label>
+        <input id="f-nick" type="text" maxlength="12" placeholder="例：やまけん" autocomplete="nickname" value="${esc(p.nickname || '')}">
+        <div class="muted">組み合わせ表や参加者一覧に表示される名前です（12文字まで）</div>
       </div>
       <div class="field">
         <div class="label">性別<span class="req"> 必須</span></div>
@@ -81,7 +92,7 @@
         <div class="counter"><span id="f-count">${(p.hobby || '').length}</span> / 100</div>
       </div>
       <button id="f-submit" class="btn btn-primary" type="button">${esc(submitLabel)}</button>
-      <p class="muted center">氏名・性別・趣味は、開催中に参加者どうしで表示されます。<br>経験年数は組み合わせにのみ使います。</p>
+      <p class="muted center">ニックネーム・性別・趣味は、開催中に参加者どうしで表示されます。<br>姓・名は主催者だけが見られます。経験年数は組み合わせにのみ使います。</p>
     </div>`;
   }
 
@@ -92,10 +103,13 @@
     $('f-hobby').addEventListener('input', () => { $('f-count').textContent = $('f-hobby').value.length; });
     $('f-submit').addEventListener('click', async () => {
       const data = {
-        name: $('f-name').value.trim(), gender: val('gender'),
+        sei: $('f-sei').value.trim(), mei: $('f-mei').value.trim(), nickname: $('f-nick').value.trim(),
+        gender: val('gender'),
         experience: val('experience'), years: val('years'), hobby: $('f-hobby').value.trim(),
       };
-      if (!data.name) return showError('氏名を入力してください');
+      if (!data.sei) return showError('姓（苗字）を入力してください');
+      if (!data.mei) return showError('名（名前）を入力してください');
+      if (!data.nickname) return showError('ニックネームを入力してください');
       if (!data.gender) return showError('性別を選択してください');
       if (!data.experience) return showError('経験の有無を選択してください');
       if (data.experience === '経験者' && !data.years) return showError('経験年数を選択してください');
@@ -173,9 +187,11 @@
     }
 
     // ---- 受付中 ----
-    if (!s.profile) {
-      v.innerHTML = eventCard(s.event, '本日の開催') +
-        profileForm(null, '登録して参加する', 'はじめての方は、最初にプロフィールを登録してください。次回からは「参加」ボタンを押すだけです。<br>参加時に現在地を確認するので、会場の近くで登録してください。');
+    if (!s.profile || !s.profile.complete) {
+      const lead = s.profile
+        ? '登録項目が増えました。姓・名・ニックネームを入力してから参加してください。'
+        : 'はじめての方は、最初にプロフィールを登録してください。次回からは「参加」ボタンを押すだけです。<br>参加時に現在地を確認するので、会場の近くで登録してください。';
+      v.innerHTML = eventCard(s.event, '本日の開催') + profileForm(s.profile, '登録して参加する', lead);
       bindProfileForm(async (data) => {
         const location = await getLocation(); // 先に位置情報の許可を取る
         await api('saveProfile', { data });
@@ -188,7 +204,7 @@
     if (!s.joined) {
       v.innerHTML = `${eventCard(s.event, '本日の開催')}
         <div class="card center">
-          <div class="muted">${esc(s.profile.name)} さん、ようこそ！</div>
+          <div class="muted">${esc(s.profile.nickname)} さん、ようこそ！</div>
           <button id="join" class="join-btn" type="button">参加</button>
           <div class="muted">押すと現在地を確認して、今日の参加者として登録します。<br>会場の近くで押してください（位置情報は保存しません）</div>
         </div>`;
