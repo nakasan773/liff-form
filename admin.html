@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ラクっとバドミントン 主催メニュー</title>
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=7">
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script src="qrcode.js?v=5"></script>
-<script src="config.js?v=5"></script>
-<script src="common.js?v=5"></script>
+<script src="qrcode.js?v=7"></script>
+<script src="config.js?v=7"></script>
+<script src="common.js?v=7"></script>
 </head>
 <body>
 <header class="top admin">
@@ -30,7 +30,7 @@
 
 <script>
 (function () {
-  const { C, api, initLiff, day, hm, ymd, range, esc, $, showError, genderTag } = App;
+  const { C, api, userError, errMsg, initLiff, day, hm, ymd, range, esc, $, showError, genderTag, confirmDialog } = App;
   const TITLES = { event: '開催設定', export: '参加者を iPad へ送る', roster: '参加者名簿', share: 'iPad へ送る' };
   let page = 'event';
   let events = [];
@@ -42,7 +42,7 @@
     const orig = btn.textContent;
     btn.disabled = true; btn.textContent = label; showError('');
     try { await fn(); }
-    catch (e) { showError(e.message); }
+    catch (e) { showError(e); }
     finally { if (document.body.contains(btn)) { btn.disabled = false; btn.textContent = orig; } }
   }
 
@@ -101,8 +101,8 @@
         id: e.id || '', date: $('ev-date').value, start: $('ev-start').value,
         end: $('ev-end').value, place: $('ev-place').value.trim(),
       };
-      if (!data.date) throw new Error('開催日を入力してください');
-      if (!data.place) throw new Error('開催場所を入力してください');
+      if (!data.date) throw userError('開催日を入力してください');
+      if (!data.place) throw userError('開催場所を入力してください');
       events = (await api('saveEvent', { data })).events;
       renderEvent();
       const saved = events.filter((x) => !x.past).find((x) => x.place === data.place);
@@ -117,9 +117,15 @@
       renderEvent(events.find((x) => x.id === b.dataset.edit));
       window.scrollTo(0, 0);
     }));
-    $('view').querySelectorAll('[data-cancel]').forEach((b) => b.addEventListener('click', () => {
+    $('view').querySelectorAll('[data-cancel]').forEach((b) => b.addEventListener('click', async () => {
       const x = events.find((y) => y.id === b.dataset.cancel);
-      if (!confirm(`${range(x)} の開催を中止にしますか？`)) return;
+      const ok = await confirmDialog({
+        title: 'この開催を中止にしますか？',
+        message: `${range(x)}\n${x.place}`,
+        ok: '中止にする',
+        danger: true,
+      });
+      if (!ok) return;
       busy(b, '…', async () => {
         events = (await api('cancelEvent', { eventId: x.id })).events;
         renderEvent();
@@ -194,7 +200,7 @@
           <div class="person"><div class="name">${esc(p.display_name)} <span class="muted">${esc(p.name)}</span></div>
           <div class="hobby">${{ male: '男性', female: '女性', none: '—' }[p.gender]} ・ ${p.experience === 'experienced' ? '経験者' : '未経験'}</div></div>`).join('');
         $('ex-airdrop').disabled = $('ex-qr').disabled = false;
-      } catch (e) { showError(e.message); }
+      } catch (e) { showError(e); }
     };
 
     $('ex-event').addEventListener('change', load);
@@ -213,7 +219,7 @@
       try {
         const { token } = await api('exportLink', { eventId: exportCache.eventId });
         liff.openWindow({ url: `${C.ADMIN_PAGE_URL}?page=share&t=${token}`, external: true });
-      } catch (e) { showError(e.message); }
+      } catch (e) { showError(e); }
     });
 
     $('ex-qr').addEventListener('click', () => {
@@ -277,9 +283,9 @@
       $('sh-go').addEventListener('click', async () => {
         try {
           if (!(await shareJson(data))) showError('この端末では共有メニューを開けません。「ファイルとして保存」を使ってください。');
-        } catch (e) { if (e.name !== 'AbortError') showError(e.message); }
+        } catch (e) { if (e.name !== 'AbortError') showError(e); }
       });
-    } catch (e) { showError(e.message); }
+    } catch (e) { showError(e); }
   }
 
   /* ================= 起動 ================= */
@@ -290,7 +296,7 @@
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.page === p));
     showError('');
     const run = { event: () => renderEvent(), export: renderExport, roster: renderRoster }[p];
-    Promise.resolve(run()).catch((e) => showError(e.message));
+    Promise.resolve(run()).catch((e) => showError(e));
   }
 
   async function main() {
@@ -315,9 +321,8 @@
       document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('click', () => go(b.dataset.page)));
       go(TITLES[q] && q !== 'share' ? q : 'event');
     } catch (e) {
-      $('loading').textContent = e.message || '読み込みに失敗しました。LINEアプリから開き直してください。';
-      console.error(e);
-    }
+      $('loading').textContent = errMsg(e);
+      }
   }
   main();
 })();
