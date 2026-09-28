@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ラクっとバドミントン</title>
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=7">
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script src="config.js?v=5"></script>
-<script src="common.js?v=5"></script>
+<script src="config.js?v=7"></script>
+<script src="common.js?v=7"></script>
 </head>
 <body>
 <header class="top">
@@ -24,7 +24,7 @@
 
 <script>
 (function () {
-  const { C, api, initLiff, day, hm, range, esc, $, showError, genderTag } = App;
+  const { C, api, userError, errMsg, initLiff, day, hm, range, esc, $, showError, genderTag } = App;
   const TITLES = { join: '参加登録', next: '次回開催日時', profile: 'プロフィール' };
   let page = 'join';
   let state = null;
@@ -139,17 +139,17 @@
   function getLocation() {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
-        return reject(new Error('この端末では位置情報を使えません'));
+        return reject(userError('この端末では位置情報を使えません'));
       }
       navigator.geolocation.getCurrentPosition(
         (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
         (err) => {
           if (err.code === err.PERMISSION_DENIED) {
-            reject(new Error('位置情報の利用が許可されていません。iPhone：設定 → LINE → 位置情報 →「このAppの使用中のみ許可」。Android：設定 → アプリ → LINE → 権限 → 位置情報 →「許可」。変更後、この画面を開き直してください'));
+            reject(userError('位置情報の利用が許可されていません。iPhone：設定 → LINE → 位置情報 →「このAppの使用中のみ許可」。Android：設定 → アプリ → LINE → 権限 → 位置情報 →「許可」。変更後、この画面を開き直してください'));
           } else if (err.code === err.TIMEOUT) {
-            reject(new Error('現在地を取得できませんでした。入口や窓の近くでもう一度お試しください'));
+            reject(userError('現在地を取得できませんでした。入口や窓の近くでもう一度お試しください'));
           } else {
-            reject(new Error('現在地を取得できませんでした。スマホの位置情報サービスがオンになっているか確認してください'));
+            reject(userError('現在地を取得できませんでした。スマホの位置情報サービスがオンになっているか確認してください'));
           }
         },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -167,7 +167,7 @@
     const orig = btn.textContent;
     btn.disabled = true; btn.textContent = label; showError('');
     try { await fn(); }
-    catch (e) { showError(e.message); btn.disabled = false; btn.textContent = orig; }
+    catch (e) { showError(e); btn.disabled = false; btn.textContent = orig; }
   }
 
   /* ---------------- 各ページ ---------------- */
@@ -277,9 +277,8 @@
       $('app').hidden = false;
       render();
     } catch (e) {
-      $('loading').textContent = e.message || '読み込みに失敗しました。LINEアプリから開き直してください。';
-      console.error(e);
-    }
+      $('loading').textContent = errMsg(e);
+      }
   }
   main();
 })();
