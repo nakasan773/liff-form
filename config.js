@@ -11,7 +11,7 @@ window.APP_CONFIG = {
   ADMIN_LIFF_ID: '2011766917-pwYnWsmc',
 
   // GAS ウェブアプリの URL（…/exec）
-  GAS_URL: 'https://script.google.com/macros/s/AKfycbzSVeFwBRa81dE5t3kUwNBHynr5Kuqtxu5nKg1Ayp275UTkXfFh39C34A-vcfVimhU4qg/exec',
+  GAS_URL: 'https://script.google.com/macros/s/AKfycbwal3smVKy4ZEYSSdimOffQyByhLLOxqCIy7D6TsawT2Ydltz26tfyMCNJR3wtXEnl8Tw/exec',
 
   // admin.html の公開URL（LINEで共有できないときに Safari で開く先）
   ADMIN_PAGE_URL: 'https://nakasan773.github.io/liff-form/admin.html',
