@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ラクっとバドミントン 主催メニュー</title>
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script src="qrcode.js?v=3"></script>
-<script src="config.js?v=3"></script>
-<script src="common.js?v=3"></script>
+<script src="qrcode.js?v=4"></script>
+<script src="config.js?v=4"></script>
+<script src="common.js?v=4"></script>
 </head>
 <body>
 <header class="top admin">
@@ -73,7 +73,8 @@
       </div>
       <div class="field">
         <label class="label" for="ev-place">開催場所</label>
-        <input id="ev-place" type="text" maxlength="60" placeholder="例：〇〇区体育館 第2競技場" value="${esc(e.place || '')}">
+        <input id="ev-place" type="text" maxlength="60" placeholder="例：札幌市中央体育館" value="${esc(e.place || '')}">
+        <div class="muted">施設名か住所を入れると、参加時の位置確認に自動で使われます。</div>
       </div>
       <button id="ev-save" class="btn btn-dark" type="button">${editing ? '変更を保存' : 'この内容で登録'}</button>
       ${editing ? '<button id="ev-cancel-edit" class="btn btn-outline" type="button">編集をやめる</button>' : ''}
@@ -85,6 +86,9 @@
         <div class="ev-item">
           <div class="when">${esc(range(x))} ${phasePill(x)}</div>
           <div class="muted">📍 ${esc(x.place)} ・ 参加 ${x.count}人</div>
+          <div class="muted">${x.venueFound
+            ? `位置確認：${esc(x.venueAddress)}`
+            : '⚠ 地図で場所が見つからないため、位置確認なしで参加できます。施設名か住所に直すと確認が有効になります'}</div>
           ${x.phase === 'canceled' ? '' : `<div class="actions">
             <button class="btn btn-outline btn-small" data-edit="${esc(x.id)}" type="button">編集</button>
             <button class="btn btn-outline btn-small" data-cancel="${esc(x.id)}" type="button">中止にする</button>
@@ -101,7 +105,11 @@
       if (!data.place) throw new Error('開催場所を入力してください');
       events = (await api('saveEvent', { data })).events;
       renderEvent();
-      $('view').insertAdjacentHTML('afterbegin', '<div class="msg ok">保存しました。</div>');
+      const saved = events.filter((x) => !x.past).find((x) => x.place === data.place);
+      const geo = saved && saved.venueFound
+        ? `位置確認の基準：${esc(saved.venueAddress)}`
+        : '⚠ 地図で場所が見つからなかったため、この開催は位置確認なしで参加できます。';
+      $('view').insertAdjacentHTML('afterbegin', `<div class="msg ok">保存しました。<br><span style="font-weight:500">${geo}</span></div>`);
     }));
     if (editing) $('ev-cancel-edit').addEventListener('click', () => renderEvent());
 
