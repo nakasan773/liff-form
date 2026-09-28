@@ -127,3 +127,17 @@ td.num { text-align: right; font-weight: 700; }
 .qr svg, .qr img { width: 100%; height: auto; display: block; }
 
 #loading { padding: 60px 20px; text-align: center; color: var(--sub); }
+
+/* 画面内の確認ダイアログ */
+.dialog-backdrop {
+  position: fixed; inset: 0; z-index: 100; background: rgba(43, 36, 32, .45);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.dialog {
+  width: 100%; max-width: 360px; background: #fff; border-radius: 18px; padding: 22px 20px 18px;
+  display: flex; flex-direction: column; gap: 12px; box-shadow: 0 12px 40px rgba(0, 0, 0, .2);
+}
+.dialog-title { font-size: 17px; font-weight: 700; }
+.dialog-msg { font-size: 14px; color: var(--sub); line-height: 1.6; white-space: pre-line; }
+.dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+.btn-danger { background: #C4452B; color: #fff; }
