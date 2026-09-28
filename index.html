@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ラクっとバドミントン</title>
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script src="config.js?v=3"></script>
-<script src="common.js?v=3"></script>
+<script src="config.js?v=4"></script>
+<script src="common.js?v=4"></script>
 </head>
 <body>
 <header class="top">
@@ -120,6 +120,35 @@
     <div class="list">${items}</div>`;
   }
 
+  /* ---------------- 現在地の取得 ---------------- */
+
+  function getLocation() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        return reject(new Error('この端末では位置情報を使えません'));
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
+        (err) => {
+          if (err.code === err.PERMISSION_DENIED) {
+            reject(new Error('位置情報の利用が許可されていません。iPhone：設定 → LINE → 位置情報 →「このAppの使用中のみ許可」。Android：設定 → アプリ → LINE → 権限 → 位置情報 →「許可」。変更後、この画面を開き直してください'));
+          } else if (err.code === err.TIMEOUT) {
+            reject(new Error('現在地を取得できませんでした。入口や窓の近くでもう一度お試しください'));
+          } else {
+            reject(new Error('現在地を取得できませんでした。スマホの位置情報サービスがオンになっているか確認してください'));
+          }
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    });
+  }
+
+  async function joinWithLocation() {
+    const location = await getLocation();
+    state = await api('join', { location });
+    renderJoin();
+  }
+
   async function busy(btn, label, fn) {
     const orig = btn.textContent;
     btn.disabled = true; btn.textContent = label; showError('');
@@ -146,10 +175,11 @@
     // ---- 受付中 ----
     if (!s.profile) {
       v.innerHTML = eventCard(s.event, '本日の開催') +
-        profileForm(null, '登録して参加する', 'はじめての方は、最初にプロフィールを登録してください。次回からは「参加」ボタンを押すだけです。');
+        profileForm(null, '登録して参加する', 'はじめての方は、最初にプロフィールを登録してください。次回からは「参加」ボタンを押すだけです。<br>参加時に現在地を確認するので、会場の近くで登録してください。');
       bindProfileForm(async (data) => {
+        const location = await getLocation(); // 先に位置情報の許可を取る
         await api('saveProfile', { data });
-        state = await api('join');
+        state = await api('join', { location });
         renderJoin();
       });
       return;
@@ -160,12 +190,9 @@
         <div class="card center">
           <div class="muted">${esc(s.profile.name)} さん、ようこそ！</div>
           <button id="join" class="join-btn" type="button">参加</button>
-          <div class="muted">押すと今日の参加者として登録されます</div>
+          <div class="muted">押すと現在地を確認して、今日の参加者として登録します。<br>会場の近くで押してください（位置情報は保存しません）</div>
         </div>`;
-      $('join').addEventListener('click', () => busy($('join'), '…', async () => {
-        state = await api('join');
-        renderJoin();
-      }));
+      $('join').addEventListener('click', () => busy($('join'), '確認中', joinWithLocation));
       return;
     }
 
