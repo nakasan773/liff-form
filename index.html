@@ -3,222 +3,243 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>参加登録</title>
+<title>ラクっとバドミントン</title>
+<link rel="stylesheet" href="style.css">
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<style>
-  :root {
-    --green: #1F5E4A; --ink: #1B1F1D; --sub: #5C625E; --line: #CFCAC0;
-    --bg: #F4F1EA; --warn: #B5541A;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--ink);
-    font-family: "Hiragino Sans", "Noto Sans JP", sans-serif;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-  header { background: var(--green); color: #fff; padding: 24px 20px 18px; }
-  header .club { font-size: 13px; opacity: .9; }
-  header h1 { margin: 4px 0 2px; font-size: 22px; }
-  header p { margin: 0; font-size: 14px; }
-  main { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
-  .field { display: flex; flex-direction: column; gap: 8px; }
-  .label { font-size: 14px; font-weight: 700; }
-  .req { color: var(--warn); font-weight: 500; }
-  .opt { color: var(--sub); font-weight: 500; }
-  input[type=text], textarea {
-    width: 100%; font-size: 16px; font-family: inherit; padding: 12px 14px;
-    border: 1.5px solid var(--line); border-radius: 10px; background: #fff;
-  }
-  textarea { height: 80px; resize: none; }
-  .choices { display: grid; gap: 8px; }
-  .c2 { grid-template-columns: repeat(2, 1fr); }
-  .c3 { grid-template-columns: repeat(3, 1fr); }
-  .choices input { position: absolute; opacity: 0; pointer-events: none; }
-  .choices label {
-    display: flex; align-items: center; justify-content: center; min-height: 46px;
-    border: 1.5px solid var(--line); border-radius: 10px; background: #fff;
-    font-size: 15px; cursor: pointer;
-  }
-  .choices input:checked + label { background: var(--green); border-color: var(--green); color: #fff; font-weight: 700; }
-  .choices input:focus-visible + label { outline: 3px solid #E0853F; }
-  .counter { font-size: 12px; color: var(--sub); text-align: right; }
-  button.primary {
-    height: 54px; border: none; border-radius: 12px; background: var(--green); color: #fff;
-    font-size: 17px; font-weight: 700; font-family: inherit;
-  }
-  button.primary:disabled { opacity: .5; }
-  .note { font-size: 12px; color: var(--sub); line-height: 1.6; text-align: center; }
-  .msg { padding: 12px 14px; border-radius: 10px; font-size: 14px; font-weight: 700; }
-  .msg.err { background: #FBE7D6; color: #8A3A10; }
-  .msg.ok { background: #E3EEE8; color: #15443A; }
-  .hidden { display: none !important; }
-  #loading { padding: 60px 20px; text-align: center; color: var(--sub); }
-</style>
+<script src="config.js"></script>
+<script src="common.js"></script>
 </head>
 <body>
-<header>
-  <div class="club">☆ぬるっとバドミントン☆</div>
-  <h1>参加者登録</h1>
-  <p id="greeting">30秒で終わります</p>
+<header class="top">
+  <div class="club" id="club"></div>
+  <h1 id="title">読み込み中…</h1>
 </header>
 
 <div id="loading">読み込み中…</div>
 
-<main id="form" class="hidden">
-  <div id="error" class="msg err hidden"></div>
-
-  <div class="field">
-    <label class="label" for="name">氏名（表示名）<span class="req"> 必須</span></label>
-    <input id="name" type="text" maxlength="30" placeholder="例：山田 健" autocomplete="name">
-  </div>
-
-  <div class="field">
-    <div class="label">性別<span class="req"> 必須</span></div>
-    <div class="choices c3">
-      <input type="radio" name="gender" id="g1" value="男性"><label for="g1">男性</label>
-      <input type="radio" name="gender" id="g2" value="女性"><label for="g2">女性</label>
-      <input type="radio" name="gender" id="g3" value="回答しない"><label for="g3">回答しない</label>
-    </div>
-  </div>
-
-  <div class="field">
-    <div class="label">バドミントン経験<span class="req"> 必須</span></div>
-    <div class="choices c2">
-      <input type="radio" name="experience" id="e1" value="経験者"><label for="e1">経験者</label>
-      <input type="radio" name="experience" id="e2" value="未経験"><label for="e2">未経験</label>
-    </div>
-  </div>
-
-  <div class="field hidden" id="yearsField">
-    <div class="label">経験年数<span class="req"> 必須</span></div>
-    <div class="choices c2">
-      <input type="radio" name="years" id="y1" value="1年未満"><label for="y1">1年未満</label>
-      <input type="radio" name="years" id="y2" value="1〜3年"><label for="y2">1〜3年</label>
-      <input type="radio" name="years" id="y3" value="3〜5年"><label for="y3">3〜5年</label>
-      <input type="radio" name="years" id="y4" value="5年以上"><label for="y4">5年以上</label>
-    </div>
-  </div>
-
-  <div class="field">
-    <label class="label" for="hobby">趣味・ひとこと<span class="opt"> 任意</span></label>
-    <textarea id="hobby" maxlength="100" placeholder="例：キャンプ、ラーメン巡り"></textarea>
-    <div class="counter"><span id="count">0</span> / 100</div>
-  </div>
-
-  <button id="submit" class="primary" type="button">登録する</button>
-  <p class="note">氏名・性別・趣味は当日の参加者に表示されます。<br>経験年数は組み合わせにのみ使います。</p>
-</main>
-
-<main id="done" class="hidden">
-  <div class="msg ok">登録しました。ありがとうございます！</div>
-  <p class="note">内容を変えたいときは、もう一度リッチメニューから開いてください。</p>
-  <button id="close" class="primary" type="button">閉じる</button>
+<main id="app" hidden>
+  <div id="error" class="msg err" hidden></div>
+  <div id="view"></div>
 </main>
 
 <script>
-  // ▼ ここを自分の値に書き換える
-  const LIFF_ID = '2011766917-KDaJlDCv';           // 例: 2001234567-AbCdEfGh
-  const GAS_URL = 'https://script.google.com/macros/s/AKfycbwRQE01xuFw_KYE1-LygUx60QiRsj4O4gNLZD7zgTdokrbCysau7C3BK37BEQxInWGQCw/exec'; // 例: https://script.google.com/macros/s/xxxx/exec
-  // ▲
+(function () {
+  const { C, api, initLiff, day, hm, range, esc, $, showError, genderTag } = App;
+  const TITLES = { join: '参加登録', next: '次回開催日時', profile: 'プロフィール' };
+  let page = 'join';
+  let state = null;
+  let pollTimer = null;
 
-  const $ = (id) => document.getElementById(id);
-  const val = (name) => (document.querySelector(`input[name="${name}"]:checked`) || {}).value || '';
-  const check = (name, v) => {
-    const el = document.querySelector(`input[name="${name}"][value="${v}"]`);
-    if (el) el.checked = true;
-  };
+  $('club').textContent = C.CIRCLE_NAME;
 
-  // GAS へ送信。Content-Type を text/plain にすると CORS の事前確認が起きず、GAS でも受け取れる
-  async function callGas(payload) {
-    const res = await fetch(GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload),
+  /* ---------------- 表示パーツ ---------------- */
+
+  function eventCard(ev, label) {
+    return `<div class="event-card">
+      <div class="label">${esc(label)}</div>
+      <div class="date">${esc(range(ev))}</div>
+      <div class="place">${esc(ev.place)}</div>
+    </div>`;
+  }
+
+  function waitingText(ev) {
+    return `次回の開催日は${esc(day(ev.start))} ${esc(hm(ev.start))}〜${esc(hm(ev.end))}。<br>
+      場所は${esc(ev.place)}です。<br>
+      開催30分前（${esc(hm(ev.opensAt))}）になったら「参加」ボタンが表示されます。お待ちください。`;
+  }
+
+  const NONE_TEXT = '次回の開催日は未定です。<br>決まり次第こちらでご案内します。';
+
+  function profileForm(p, submitLabel, lead) {
+    p = p || {};
+    const radio = (name, value, id) =>
+      `<input type="radio" name="${name}" id="${id}" value="${value}" ${p[name] === value ? 'checked' : ''}><label for="${id}">${value}</label>`;
+    return `
+    <div class="card">
+      ${lead ? `<div class="muted">${lead}</div>` : ''}
+      <div class="field">
+        <label class="label" for="f-name">氏名（フルネーム）<span class="req"> 必須</span></label>
+        <input id="f-name" type="text" maxlength="30" placeholder="例：山田 健" autocomplete="name" value="${esc(p.name || '')}">
+      </div>
+      <div class="field">
+        <div class="label">性別<span class="req"> 必須</span></div>
+        <div class="choices c3">${radio('gender', '男性', 'g1')}${radio('gender', '女性', 'g2')}${radio('gender', '回答しない', 'g3')}</div>
+      </div>
+      <div class="field">
+        <div class="label">バドミントン経験<span class="req"> 必須</span></div>
+        <div class="choices c2">${radio('experience', '経験者', 'e1')}${radio('experience', '未経験', 'e2')}</div>
+      </div>
+      <div class="field" id="years-field" ${p.experience === '経験者' ? '' : 'hidden'}>
+        <div class="label">経験年数<span class="req"> 必須</span></div>
+        <div class="choices c2">
+          ${radio('years', '1年未満', 'y1')}${radio('years', '1〜3年', 'y2')}${radio('years', '3〜5年', 'y3')}${radio('years', '5年以上', 'y4')}
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="f-hobby">趣味・ひとこと<span class="opt"> 任意</span></label>
+        <textarea id="f-hobby" maxlength="100" placeholder="例：キャンプ、ラーメン巡り">${esc(p.hobby || '')}</textarea>
+        <div class="counter"><span id="f-count">${(p.hobby || '').length}</span> / 100</div>
+      </div>
+      <button id="f-submit" class="btn btn-primary" type="button">${esc(submitLabel)}</button>
+      <p class="muted center">氏名・性別・趣味は、開催中に参加者どうしで表示されます。<br>経験年数は組み合わせにのみ使います。</p>
+    </div>`;
+  }
+
+  function bindProfileForm(onSubmit) {
+    const val = (n) => (document.querySelector(`input[name="${n}"]:checked`) || {}).value || '';
+    document.querySelectorAll('input[name="experience"]').forEach((el) =>
+      el.addEventListener('change', () => { $('years-field').hidden = val('experience') !== '経験者'; }));
+    $('f-hobby').addEventListener('input', () => { $('f-count').textContent = $('f-hobby').value.length; });
+    $('f-submit').addEventListener('click', async () => {
+      const data = {
+        name: $('f-name').value.trim(), gender: val('gender'),
+        experience: val('experience'), years: val('years'), hobby: $('f-hobby').value.trim(),
+      };
+      if (!data.name) return showError('氏名を入力してください');
+      if (!data.gender) return showError('性別を選択してください');
+      if (!data.experience) return showError('経験の有無を選択してください');
+      if (data.experience === '経験者' && !data.years) return showError('経験年数を選択してください');
+      await busy($('f-submit'), '送信中…', () => onSubmit(data));
     });
-    return res.json();
   }
 
-  function showError(text) {
-    $('error').textContent = text;
-    $('error').classList.remove('hidden');
-    window.scrollTo(0, 0);
+  function participantsHtml(list) {
+    const items = list.map((p) => `
+      <div class="person">
+        <div class="name">${esc(p.name)} ${genderTag(p.gender)}</div>
+        ${p.hobby ? `<div class="hobby">${esc(p.hobby)}</div>` : ''}
+      </div>`).join('');
+    return `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>今日の参加者</h2>
+        <div><span class="count-badge">${list.length}</span> 人</div>
+      </div>
+      <span class="live">自動で更新されます</span>
+    </div>
+    <div class="list">${items}</div>`;
   }
 
-  function toggleYears() {
-    $('yearsField').classList.toggle('hidden', val('experience') !== '経験者');
+  async function busy(btn, label, fn) {
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = label; showError('');
+    try { await fn(); }
+    catch (e) { showError(e.message); btn.disabled = false; btn.textContent = orig; }
   }
+
+  /* ---------------- 各ページ ---------------- */
+
+  function renderJoin() {
+    const s = state, v = $('view');
+    stopPoll();
+
+    if (s.phase === 'none') {
+      v.innerHTML = `<div class="card center"><div class="big-msg">${NONE_TEXT}</div></div>`;
+      return;
+    }
+    if (s.phase === 'waiting') {
+      v.innerHTML = `${eventCard(s.event, '次回の開催')}
+        <div class="card"><div class="big-msg">${waitingText(s.event)}</div></div>`;
+      return;
+    }
+
+    // ---- 受付中 ----
+    if (!s.profile) {
+      v.innerHTML = eventCard(s.event, '本日の開催') +
+        profileForm(null, '登録して参加する', 'はじめての方は、最初にプロフィールを登録してください。次回からは「参加」ボタンを押すだけです。');
+      bindProfileForm(async (data) => {
+        await api('saveProfile', { data });
+        state = await api('join');
+        renderJoin();
+      });
+      return;
+    }
+
+    if (!s.joined) {
+      v.innerHTML = `${eventCard(s.event, '本日の開催')}
+        <div class="card center">
+          <div class="muted">${esc(s.profile.name)} さん、ようこそ！</div>
+          <button id="join" class="join-btn" type="button">参加</button>
+          <div class="muted">押すと今日の参加者として登録されます</div>
+        </div>`;
+      $('join').addEventListener('click', () => busy($('join'), '…', async () => {
+        state = await api('join');
+        renderJoin();
+      }));
+      return;
+    }
+
+    v.innerHTML = `<div class="msg ok">参加を受け付けました。楽しんでいきましょう！</div>
+      ${eventCard(s.event, '本日の開催')}
+      <div id="plist">${participantsHtml(s.participants || [])}</div>`;
+    startPoll();
+  }
+
+  function renderNext() {
+    const s = state, v = $('view');
+    if (!s.event) {
+      v.innerHTML = `<div class="card center"><div class="big-msg">${NONE_TEXT}</div></div>`;
+      return;
+    }
+    const note = s.phase === 'open'
+      ? (s.joined ? 'この開催には参加済みです。' : '現在、参加受付中です。メニューの「参加登録」から参加してください。')
+      : `参加受付は開催30分前（${esc(day(s.event.opensAt))} ${esc(hm(s.event.opensAt))}）から始まります。`;
+    v.innerHTML = `${eventCard(s.event, s.phase === 'open' ? '本日の開催' : '次回の開催')}
+      <div class="card"><div class="big-msg" style="font-size:16px">${note}</div></div>`;
+  }
+
+  function renderProfile() {
+    const s = state, v = $('view');
+    v.innerHTML = profileForm(s.profile, s.profile ? '変更を保存する' : '登録する',
+      s.profile ? '登録内容を変更できます。' : 'まだプロフィールが登録されていません。');
+    bindProfileForm(async (data) => {
+      state = await api('saveProfile', { data });
+      v.innerHTML = `<div class="msg ok">保存しました。</div>
+        <button id="close" class="btn btn-primary" type="button">閉じる</button>`;
+      $('close').addEventListener('click', () => (liff.isInClient() ? liff.closeWindow() : renderProfile()));
+    });
+  }
+
+  function render() {
+    $('title').textContent = TITLES[page];
+    ({ join: renderJoin, next: renderNext, profile: renderProfile })[page]();
+  }
+
+  /* ---------------- 参加者一覧の自動更新 ---------------- */
+
+  function startPoll() {
+    stopPoll();
+    pollTimer = setInterval(async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const s = await api('status');
+        const changed = s.phase !== state.phase || s.joined !== state.joined;
+        state = s;
+        if (changed) return renderJoin();
+        $('plist').innerHTML = participantsHtml(s.participants || []);
+      } catch (e) { /* 一時的な通信エラーは次回に再試行 */ }
+    }, (C.POLL_SECONDS || 20) * 1000);
+  }
+  function stopPoll() { if (pollTimer) clearInterval(pollTimer); pollTimer = null; }
+
+  /* ---------------- 起動 ---------------- */
 
   async function main() {
     try {
-      await liff.init({ liffId: LIFF_ID });
-      if (!liff.isLoggedIn()) {
-        liff.login(); // LINE 外のブラウザで開いた場合
-        return;
-      }
-
-      const profile = await liff.getProfile();
-      $('greeting').textContent = `${profile.displayName} さん、こんにちは`;
-
-      // 登録済みなら前回の内容を入れておく
-      const res = await callGas({ action: 'get', idToken: liff.getIDToken() });
-      if (res.ok && res.record) {
-        const r = res.record;
-        $('name').value = r.name;
-        check('gender', r.gender);
-        check('experience', r.experience);
-        if (r.years) check('years', r.years);
-        $('hobby').value = r.hobby;
-        $('submit').textContent = '内容を更新する';
-      } else if (!res.ok) {
-        showError(res.error);
-      }
-
-      toggleYears();
-      $('count').textContent = $('hobby').value.length;
-      $('loading').classList.add('hidden');
-      $('form').classList.remove('hidden');
+      if (!(await initLiff(C.LIFF_ID))) return;
+      const q = new URLSearchParams(location.search).get('page');
+      if (TITLES[q]) page = q;
+      state = await api('status');
+      $('loading').hidden = true;
+      $('app').hidden = false;
+      render();
     } catch (e) {
-      $('loading').textContent = '読み込みに失敗しました。LINEアプリから開き直してください。';
+      $('loading').textContent = e.message || '読み込みに失敗しました。LINEアプリから開き直してください。';
       console.error(e);
     }
   }
-
-  document.querySelectorAll('input[name="experience"]').forEach((el) => el.addEventListener('change', toggleYears));
-  $('hobby').addEventListener('input', () => { $('count').textContent = $('hobby').value.length; });
-
-  $('submit').addEventListener('click', async () => {
-    const data = {
-      name: $('name').value.trim(),
-      gender: val('gender'),
-      experience: val('experience'),
-      years: val('years'),
-      hobby: $('hobby').value.trim(),
-    };
-    // 画面側の簡易チェック（最終チェックは GAS 側で行う）
-    if (!data.name) return showError('氏名を入力してください');
-    if (!data.gender) return showError('性別を選択してください');
-    if (!data.experience) return showError('経験の有無を選択してください');
-    if (data.experience === '経験者' && !data.years) return showError('経験年数を選択してください');
-
-    $('submit').disabled = true;
-    $('submit').textContent = '送信中…';
-    try {
-      const res = await callGas({ action: 'save', idToken: liff.getIDToken(), data });
-      if (!res.ok) throw new Error(res.error);
-      $('form').classList.add('hidden');
-      $('done').classList.remove('hidden');
-    } catch (e) {
-      showError(e.message || '送信に失敗しました。電波の良い場所でもう一度お試しください');
-      $('submit').disabled = false;
-      $('submit').textContent = '登録する';
-    }
-  });
-
-  $('close').addEventListener('click', () => {
-    if (liff.isInClient()) liff.closeWindow();
-  });
-
   main();
+})();
 </script>
 </body>
 </html>

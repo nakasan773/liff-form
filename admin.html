@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ラクっとバドミントン 主催メニュー</title>
+<link rel="stylesheet" href="style.css">
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="qrcode.js"></script>
+<script src="config.js"></script>
+<script src="common.js"></script>
+</head>
+<body>
+<header class="top admin">
+  <div class="club" id="club"></div>
+  <h1 id="title">主催メニュー</h1>
+</header>
+
+<div id="loading">読み込み中…</div>
+
+<main id="app" hidden>
+  <div class="tabs" id="tabs">
+    <button type="button" data-page="event">開催設定</button>
+    <button type="button" data-page="export">参加者を送る</button>
+    <button type="button" data-page="roster">名簿</button>
+  </div>
+  <div id="error" class="msg err" hidden></div>
+  <div id="view"></div>
+</main>
+
+<script>
+(function () {
+  const { C, api, initLiff, day, hm, ymd, range, esc, $, showError, genderTag } = App;
+  const TITLES = { event: '開催設定', export: '参加者を iPad へ送る', roster: '参加者名簿', share: 'iPad へ送る' };
+  let page = 'event';
+  let events = [];
+  let exportCache = null; // { eventId, data }
+
+  $('club').textContent = C.CIRCLE_NAME + ' ・ 主催用';
+
+  async function busy(btn, label, fn) {
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = label; showError('');
+    try { await fn(); }
+    catch (e) { showError(e.message); }
+    finally { if (document.body.contains(btn)) { btn.disabled = false; btn.textContent = orig; } }
+  }
+
+  function phasePill(e) {
+    if (e.phase === 'canceled') return '<span class="pill canceled">中止</span>';
+    if (e.phase === 'open') return '<span class="pill open">受付中</span>';
+    if (e.past) return '<span class="pill">終了</span>';
+    return '<span class="pill">予定</span>';
+  }
+
+  /* ================= 開催設定 ================= */
+
+  function renderEvent(editing) {
+    const e = editing || {};
+    const upcoming = events.filter((x) => !x.past);
+    $('view').innerHTML = `
+    <div class="card">
+      <h2>${editing ? '開催を編集' : '開催を登録'}</h2>
+      <div class="field">
+        <label class="label" for="ev-date">開催日</label>
+        <input id="ev-date" type="date" value="${e.start ? ymd(e.start) : ''}">
+      </div>
+      <div class="row2">
+        <div class="field"><label class="label" for="ev-start">開始</label>
+          <input id="ev-start" type="time" step="300" value="${e.start ? hm(e.start) : '18:00'}"></div>
+        <div class="field"><label class="label" for="ev-end">終了</label>
+          <input id="ev-end" type="time" step="300" value="${e.end ? hm(e.end) : '21:00'}"></div>
+      </div>
+      <div class="field">
+        <label class="label" for="ev-place">開催場所</label>
+        <input id="ev-place" type="text" maxlength="60" placeholder="例：〇〇区体育館 第2競技場" value="${esc(e.place || '')}">
+      </div>
+      <button id="ev-save" class="btn btn-dark" type="button">${editing ? '変更を保存' : 'この内容で登録'}</button>
+      ${editing ? '<button id="ev-cancel-edit" class="btn btn-outline" type="button">編集をやめる</button>' : ''}
+      <div class="muted">参加者には、開始30分前になると「参加」ボタンが表示されます。</div>
+    </div>
+    <div class="card">
+      <h2>これからの開催</h2>
+      ${upcoming.length ? upcoming.map((x) => `
+        <div class="ev-item">
+          <div class="when">${esc(range(x))} ${phasePill(x)}</div>
+          <div class="muted">📍 ${esc(x.place)} ・ 参加 ${x.count}人</div>
+          ${x.phase === 'canceled' ? '' : `<div class="actions">
+            <button class="btn btn-outline btn-small" data-edit="${esc(x.id)}" type="button">編集</button>
+            <button class="btn btn-outline btn-small" data-cancel="${esc(x.id)}" type="button">中止にする</button>
+          </div>`}
+        </div>`).join('') : '<div class="muted">登録された開催はありません。</div>'}
+    </div>`;
+
+    $('ev-save').addEventListener('click', () => busy($('ev-save'), '保存中…', async () => {
+      const data = {
+        id: e.id || '', date: $('ev-date').value, start: $('ev-start').value,
+        end: $('ev-end').value, place: $('ev-place').value.trim(),
+      };
+      if (!data.date) throw new Error('開催日を入力してください');
+      if (!data.place) throw new Error('開催場所を入力してください');
+      events = (await api('saveEvent', { data })).events;
+      renderEvent();
+      $('view').insertAdjacentHTML('afterbegin', '<div class="msg ok">保存しました。</div>');
+    }));
+    if (editing) $('ev-cancel-edit').addEventListener('click', () => renderEvent());
+
+    $('view').querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => {
+      renderEvent(events.find((x) => x.id === b.dataset.edit));
+      window.scrollTo(0, 0);
+    }));
+    $('view').querySelectorAll('[data-cancel]').forEach((b) => b.addEventListener('click', () => {
+      const x = events.find((y) => y.id === b.dataset.cancel);
+      if (!confirm(`${range(x)} の開催を中止にしますか？`)) return;
+      busy(b, '…', async () => {
+        events = (await api('cancelEvent', { eventId: x.id })).events;
+        renderEvent();
+      });
+    }));
+  }
+
+  /* ================= iPad へ送る ================= */
+
+  function defaultExportEvent() {
+    const live = events.filter((x) => x.phase !== 'canceled');
+    return live.find((x) => x.phase === 'open')
+      || live.filter((x) => new Date(x.start) <= new Date()).pop()
+      || live[0];
+  }
+
+  function fileNameOf(data) {
+    return `rakutto_${data.event.date}_${data.participants.length}人.json`;
+  }
+
+  // QR 用の短い形式（趣味は入れない）
+  function compactOf(data) {
+    const g = { male: 'm', female: 'f', none: 'n' };
+    const y = { none: 0, lt1: 1, '1to3': 2, '3to5': 3, gte5: 4 };
+    return JSON.stringify({
+      v: 1,
+      e: { id: data.event.external_event_id, d: data.event.date, s: data.event.start, t: data.event.end, p: data.event.place },
+      m: data.participants.map((p) => [p.id, p.name, g[p.gender] || 'n', p.experience === 'experienced' ? (y[p.experience_years] || 0) : 0]),
+    });
+  }
+
+  async function shareJson(data) {
+    const file = new File([JSON.stringify(data, null, 2)], fileNameOf(data), { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: fileNameOf(data) });
+      return true;
+    }
+    return false;
+  }
+
+  async function renderExport() {
+    const list = events.filter((x) => x.phase !== 'canceled');
+    if (!list.length) {
+      $('view').innerHTML = '<div class="card"><div class="muted">送れる開催がありません。先に「開催設定」で開催を登録してください。</div></div>';
+      return;
+    }
+    const cur = (exportCache && list.find((x) => x.id === exportCache.eventId)) || defaultExportEvent();
+    $('view').innerHTML = `
+    <div class="card">
+      <div class="field">
+        <label class="label" for="ex-event">開催回</label>
+        <select id="ex-event">${list.map((x) => `<option value="${esc(x.id)}" ${x.id === cur.id ? 'selected' : ''}>${esc(range(x))}（${x.count}人）</option>`).join('')}</select>
+      </div>
+      <div id="ex-summary" class="muted">参加者を読み込み中…</div>
+      <button id="ex-airdrop" class="btn btn-dark" type="button" disabled>AirDrop で iPad に送る</button>
+      <button id="ex-qr" class="btn btn-outline" type="button" disabled>QRコードを表示</button>
+      <button id="ex-reload" class="btn btn-outline btn-small" type="button">最新の参加者に更新</button>
+    </div>
+    <div id="ex-qr-area"></div>
+    <div id="ex-list" class="list"></div>`;
+
+    const load = async () => {
+      const id = $('ex-event').value;
+      $('ex-airdrop').disabled = $('ex-qr').disabled = true;
+      $('ex-qr-area').innerHTML = '';
+      $('ex-summary').textContent = '参加者を読み込み中…';
+      try {
+        const data = (await api('exportData', { eventId: id })).data;
+        exportCache = { eventId: id, data };
+        $('ex-summary').innerHTML = `<b>${data.participants.length}人</b>の参加者を送ります。<br>ファイル名：${esc(fileNameOf(data))}`;
+        $('ex-list').innerHTML = data.participants.map((p) => `
+          <div class="person"><div class="name">${esc(p.name)}</div>
+          <div class="hobby">${{ male: '男性', female: '女性', none: '—' }[p.gender]} ・ ${p.experience === 'experienced' ? '経験者' : '未経験'}</div></div>`).join('');
+        $('ex-airdrop').disabled = $('ex-qr').disabled = false;
+      } catch (e) { showError(e.message); }
+    };
+
+    $('ex-event').addEventListener('change', load);
+    $('ex-reload').addEventListener('click', load);
+
+    // データは先に読み込んでおき、ボタンを押した瞬間に共有を開く（iOSの制約対策）
+    $('ex-airdrop').addEventListener('click', async () => {
+      showError('');
+      const data = exportCache.data;
+      try {
+        if (await shareJson(data)) return;
+      } catch (e) {
+        if (e.name === 'AbortError') return; // 共有をキャンセルした
+      }
+      // LINE内ブラウザで共有できない場合は Safari で開き直す
+      try {
+        const { token } = await api('exportLink', { eventId: exportCache.eventId });
+        liff.openWindow({ url: `${C.ADMIN_PAGE_URL}?page=share&t=${token}`, external: true });
+      } catch (e) { showError(e.message); }
+    });
+
+    $('ex-qr').addEventListener('click', () => {
+      const area = $('ex-qr-area');
+      try {
+        qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+        const qr = qrcode(0, 'L');
+        qr.addData(compactOf(exportCache.data), 'Byte');
+        qr.make();
+        area.innerHTML = `<div class="card"><h2>iPad のカメラで読み取り</h2>
+          <div class="qr">${qr.createSvgTag(4, 8)}</div>
+          <div class="muted">QRには氏名・性別・経験のみを入れています（趣味は含みません）。</div></div>`;
+        area.scrollIntoView({ behavior: 'smooth' });
+      } catch (e) {
+        area.innerHTML = '<div class="msg err">参加者が多く、QRコード1枚に収まりません。AirDrop を使ってください。</div>';
+      }
+    });
+
+    load();
+  }
+
+  /* ================= 名簿 ================= */
+
+  async function renderRoster() {
+    $('view').innerHTML = '<div class="muted">読み込み中…</div>';
+    const { people } = await api('roster');
+    $('view').innerHTML = `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>登録者</h2><div><span class="count-badge">${people.length}</span> 人</div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>氏名</th><th>性別</th><th>経験</th><th>参加</th><th>最終参加</th></tr></thead>
+        <tbody>${people.map((p) => `<tr>
+          <td>${esc(p.name)}</td><td>${genderTag(p.gender)}</td>
+          <td>${esc(p.experience === '経験者' ? p.years : '未経験')}</td>
+          <td class="num">${p.count}回</td><td>${p.last ? esc(day(p.last)) : '—'}</td></tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
+  }
+
+  /* ================= Safari 共有ページ ================= */
+
+  async function shareMain() {
+    $('title').textContent = TITLES.share;
+    $('tabs').hidden = true;
+    $('loading').hidden = true;
+    $('app').hidden = false;
+    const token = new URLSearchParams(location.search).get('t') || '';
+    try {
+      const { data } = await api('exportByToken', { token });
+      $('view').innerHTML = `
+      <div class="card">
+        <div class="big-msg" style="font-size:16px">${esc(data.event.name)}<br>参加者 ${data.participants.length}人</div>
+        <button id="sh-go" class="btn btn-dark" type="button">AirDrop で iPad に送る</button>
+        <a id="sh-dl" class="btn btn-outline" download="${esc(fileNameOf(data))}">ファイルとして保存</a>
+        <div class="muted">「AirDrop で送る」を押すと共有メニューが開きます。AirDrop から iPad を選んでください。</div>
+      </div>`;
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      $('sh-dl').href = URL.createObjectURL(blob);
+      $('sh-go').addEventListener('click', async () => {
+        try {
+          if (!(await shareJson(data))) showError('この端末では共有メニューを開けません。「ファイルとして保存」を使ってください。');
+        } catch (e) { if (e.name !== 'AbortError') showError(e.message); }
+      });
+    } catch (e) { showError(e.message); }
+  }
+
+  /* ================= 起動 ================= */
+
+  function go(p) {
+    page = p;
+    $('title').textContent = TITLES[p];
+    document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.page === p));
+    showError('');
+    const run = { event: () => renderEvent(), export: renderExport, roster: renderRoster }[p];
+    Promise.resolve(run()).catch((e) => showError(e.message));
+  }
+
+  async function main() {
+    const q = new URLSearchParams(location.search).get('page');
+    if (q === 'share') return shareMain(); // LIFF を使わない（Safari で開く）
+
+    try {
+      if (!(await initLiff(C.ADMIN_LIFF_ID))) return;
+      const chk = await api('adminCheck');
+      $('loading').hidden = true;
+      $('app').hidden = false;
+      if (!chk.admin) {
+        $('tabs').hidden = true;
+        $('view').innerHTML = `<div class="card">
+          <h2>主催者のみ利用できます</h2>
+          <div class="muted">主催者として登録するには、下の ID を GAS のスクリプトプロパティ ADMIN_USER_IDS に追加してください。</div>
+          <input type="text" readonly value="${esc(chk.userId)}" onclick="this.select()">
+        </div>`;
+        return;
+      }
+      events = (await api('listEvents')).events;
+      document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('click', () => go(b.dataset.page)));
+      go(TITLES[q] && q !== 'share' ? q : 'event');
+    } catch (e) {
+      $('loading').textContent = e.message || '読み込みに失敗しました。LINEアプリから開き直してください。';
+      console.error(e);
+    }
+  }
+  main();
+})();
+</script>
+</body>
+</html>
