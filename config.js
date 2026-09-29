@@ -10,12 +10,15 @@ window.APP_CONFIG = {
   // 管理者用 LIFF（admin.html をエンドポイントにしたもの）
   ADMIN_LIFF_ID: '2011766917-pwYnWsmc',
 
+  // 点数ボード LIFF
+　SCORE_LIFF_ID: '2011766917-51Le6uLT',
+  
   // GAS ウェブアプリの URL（…/exec）
   GAS_URL: 'https://script.google.com/macros/s/AKfycbxT1c6MBtQgW7uV2Z8Oy0SYtXwSzv0g4h928qzMCCjXQ_VNI22QSXrYpqxDRd0aAeV4jQ/exec',
 
   // admin.html の公開URL（LINEで共有できないときに Safari で開く先）
   ADMIN_PAGE_URL: 'https://nakasan773.github.io/liff-form/admin.html',
-
+  
   // 参加者一覧を自動更新する間隔（秒）
   POLL_SECONDS: 20,
 };
