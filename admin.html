@@ -244,22 +244,73 @@
 
   /* ================= 名簿 ================= */
 
-  async function renderRoster() {
-    $('view').innerHTML = '<div class="muted">読み込み中…</div>';
-    const { people } = await api('roster');
+  const ROLE_LABEL = { owner: 'オーナー', admin: '管理者' };
+
+  async function renderRoster(res) {
+    if (!res) {
+      $('view').innerHTML = '<div class="muted">読み込み中…</div>';
+      res = await api('roster');
+    }
+    const { people } = res;
+    const admins = people.filter((p) => p.role);
+    const others = people.filter((p) => !p.role)
+      .slice().sort((a, b) => a.nickname.localeCompare(b.nickname, 'ja'));
     $('view').innerHTML = `
+    ${res.notice ? `<div class="msg err">${esc(res.notice)}</div>` : ''}
+    <div class="card">
+      <h2>管理者</h2>
+      <div class="muted">管理者は主催メニュー（開催設定・参加者を送る・名簿・過去の開催）を使えます。付与・解除すると、その人のLINEのメニューもすぐ切り替わります。</div>
+      <div class="list">${admins.map((p) => `
+        <div class="admin-row">
+          <div class="name"><b>${esc(p.nickname)}</b> <span class="muted">${esc(p.name)}</span>${p.me ? ' <span class="pill">自分</span>' : ''}</div>
+          ${p.role === 'owner'
+            ? '<span class="pill">オーナー</span>'
+            : p.me ? '<span class="pill">管理者</span>'
+            : `<button class="btn btn-outline btn-small" data-revoke="${esc(p.key)}" type="button">解除</button>`}
+        </div>`).join('')}</div>
+      ${others.length ? `
+      <div class="field">
+        <label class="label" for="ro-add">管理者を追加</label>
+        <select id="ro-add"><option value="">参加者を選ぶ</option>${others.map((p) =>
+          `<option value="${esc(p.key)}">${esc(p.nickname)}（${esc(p.name)}）</option>`).join('')}</select>
+      </div>
+      <button id="ro-grant" class="btn btn-dark" type="button">管理者にする</button>` : ''}
+      <div class="muted">オーナーはGASの設定（ADMIN_USER_IDS）で決まるため、ここでは外せません。自分の権限はほかの管理者に外してもらってください。</div>
+    </div>
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <h2>登録者</h2><div><span class="count-badge">${people.length}</span> 人</div>
       </div>
       <div class="table-wrap"><table>
-        <thead><tr><th>ニックネーム</th><th>氏名</th><th>性別</th><th>経験</th><th>参加</th><th>最終参加</th></tr></thead>
+        <thead><tr><th>ニックネーム</th><th>氏名</th><th>性別</th><th>経験</th><th>参加</th><th>最終参加</th><th>権限</th></tr></thead>
         <tbody>${people.map((p) => `<tr>
           <td><b>${esc(p.nickname)}</b></td><td>${esc(p.name)}</td><td>${genderTag(p.gender)}</td>
           <td>${esc(p.experience === '経験者' ? p.years : '未経験')}</td>
-          <td class="num">${p.count}回</td><td>${p.last ? esc(day(p.last)) : '—'}</td></tr>`).join('')}</tbody>
+          <td class="num">${p.count}回</td><td>${p.last ? esc(day(p.last)) : '—'}</td>
+          <td>${p.role ? `<span class="pill">${ROLE_LABEL[p.role]}</span>` : ''}</td></tr>`).join('')}</tbody>
       </table></div>
     </div>`;
+
+    const change = async (btn, key, admin) => {
+      const p = people.find((x) => x.key === key);
+      const ok = await confirmDialog(admin
+        ? { title: `${p.nickname} さんを管理者にしますか？`, message: '主催メニューが使えるようになり、参加者の氏名や名簿も見られるようになります。', ok: '管理者にする' }
+        : { title: `${p.nickname} さんの管理者権限を解除しますか？`, message: 'LINEのメニューが一般用に戻ります。', ok: '解除する', danger: true });
+      if (!ok) return;
+      await busy(btn, '変更中…', async () => {
+        const r = await api('setRole', { key, admin });
+        renderRoster(r);
+      });
+    };
+    $('view').querySelectorAll('[data-revoke]').forEach((b) =>
+      b.addEventListener('click', () => change(b, b.dataset.revoke, false)));
+    if ($('ro-grant')) {
+      $('ro-grant').addEventListener('click', () => {
+        const key = $('ro-add').value;
+        if (!key) return showError('管理者にする参加者を選んでください');
+        change($('ro-grant'), key, true);
+      });
+    }
   }
 
   /* ================= 過去の開催 ================= */
@@ -322,7 +373,7 @@
     $('title').textContent = TITLES[p];
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.page === p));
     showError('');
-    const run = { event: () => renderEvent(), export: renderExport, roster: renderRoster, history: renderHistory }[p];
+    const run = { event: () => renderEvent(), export: renderExport, roster: () => renderRoster(), history: renderHistory }[p];
     Promise.resolve(run()).catch((e) => showError(e));
   }
 
@@ -338,8 +389,9 @@
       if (!chk.admin) {
         $('tabs').hidden = true;
         $('view').innerHTML = `<div class="card">
-          <h2>主催者のみ利用できます</h2>
-          <div class="muted">主催者として登録するには、下の ID を GAS のスクリプトプロパティ ADMIN_USER_IDS に追加してください。</div>
+          <h2>管理者のみ利用できます</h2>
+          <div class="muted">管理者から「名簿」→「管理者を追加」で権限を付与してもらってください（先に参加登録でプロフィールを登録しておく必要があります）。</div>
+          <div class="muted">最初の管理者（オーナー）を設定する場合は、下の ID を GAS のスクリプトプロパティ ADMIN_USER_IDS に設定してください。</div>
           <input type="text" readonly value="${esc(chk.userId)}" onclick="this.select()">
         </div>`;
         return;
