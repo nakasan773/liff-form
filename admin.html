@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ラクっとバドミントン 主催メニュー</title>
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script src="qrcode.js?v=7"></script>
-<script src="config.js?v=7"></script>
-<script src="common.js?v=7"></script>
+<script src="qrcode.js?v=8"></script>
+<script src="config.js?v=8"></script>
+<script src="common.js?v=8"></script>
 </head>
 <body>
 <header class="top admin">
@@ -23,6 +23,7 @@
     <button type="button" data-page="event">開催設定</button>
     <button type="button" data-page="export">参加者を送る</button>
     <button type="button" data-page="roster">名簿</button>
+    <button type="button" data-page="history">過去の開催</button>
   </div>
   <div id="error" class="msg err" hidden></div>
   <div id="view"></div>
@@ -31,7 +32,7 @@
 <script>
 (function () {
   const { C, api, userError, errMsg, initLiff, day, hm, ymd, range, esc, $, showError, genderTag, confirmDialog } = App;
-  const TITLES = { event: '開催設定', export: '参加者を iPad へ送る', roster: '参加者名簿', share: 'iPad へ送る' };
+  const TITLES = { event: '開催設定', export: '参加者を iPad へ送る', roster: '参加者名簿', history: '過去の開催', share: 'iPad へ送る' };
   let page = 'event';
   let events = [];
   let exportCache = null; // { eventId, data }
@@ -261,6 +262,32 @@
     </div>`;
   }
 
+  /* ================= 過去の開催 ================= */
+
+  async function renderHistory() {
+    $('view').innerHTML = '<div class="muted">読み込み中…</div>';
+    const list = (await api('history')).events;
+    const held = list.filter((x) => !x.canceled);
+    $('view').innerHTML = `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>これまでの開催</h2><div><span class="count-badge">${held.length}</span> 回</div>
+      </div>
+      ${held.length ? `<div class="muted">延べ ${held.reduce((n, x) => n + x.count, 0)}人 ・ 1回平均 ${
+        (held.reduce((n, x) => n + x.count, 0) / held.length).toFixed(1)}人</div>` : ''}
+      ${list.length ? list.map((x) => `
+        <details class="ev-item history">
+          <summary>
+            <div class="when">${esc(range(x))} ${x.canceled ? '<span class="pill canceled">中止</span>' : `<span class="pill">${x.count}人</span>`}</div>
+            <div class="muted">📍 ${esc(x.place)}</div>
+          </summary>
+          ${x.canceled ? '' : x.participants.length
+            ? `<div class="chips">${x.participants.map((p) => `<span class="chip">${esc(p.name)} ${genderTag(p.gender)}</span>`).join('')}</div>`
+            : '<div class="muted">参加者はいませんでした。</div>'}
+        </details>`).join('') : '<div class="muted">終わった開催はまだありません。</div>'}
+    </div>`;
+  }
+
   /* ================= Safari 共有ページ ================= */
 
   async function shareMain() {
@@ -295,7 +322,7 @@
     $('title').textContent = TITLES[p];
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.page === p));
     showError('');
-    const run = { event: () => renderEvent(), export: renderExport, roster: renderRoster }[p];
+    const run = { event: () => renderEvent(), export: renderExport, roster: renderRoster, history: renderHistory }[p];
     Promise.resolve(run()).catch((e) => showError(e));
   }
 
