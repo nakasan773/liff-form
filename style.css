@@ -105,8 +105,8 @@ select { -webkit-appearance: none; appearance: none;
 .live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #3CB371; animation: blink 1.6s infinite; }
 @keyframes blink { 50% { opacity: .2; } }
 
-.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: #EFE7DA; padding: 4px; border-radius: 12px; }
-.tabs button { min-height: 40px; border: none; border-radius: 9px; background: transparent; font-family: inherit; font-size: 14px; color: var(--ink); cursor: pointer; }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; background: #EFE7DA; padding: 4px; border-radius: 12px; }
+.tabs button { min-height: 40px; padding: 0 2px; border: none; border-radius: 9px; background: transparent; font-family: inherit; font-size: 13px; white-space: nowrap; color: var(--ink); cursor: pointer; }
 .tabs button.on { background: #fff; font-weight: 700; }
 
 .ev-item { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-top: 1px solid #EFE7DA; }
@@ -117,6 +117,14 @@ select { -webkit-appearance: none; appearance: none;
 .pill.open { background: var(--orange); color: #fff; }
 .pill.canceled { background: #999; color: #fff; }
 
+details.history { display: block; }
+details.history summary { list-style: none; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+details.history summary::-webkit-details-marker { display: none; }
+details.history summary .when::after { content: "▾"; margin-left: auto; color: var(--sub); }
+details.history[open] summary .when::after { content: "▴"; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; background: #F7F1E6; border-radius: 8px; padding: 4px 8px; }
+
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { padding: 10px 8px; border-bottom: 1px solid #EFE7DA; text-align: left; white-space: nowrap; }
@@ -126,6 +134,7 @@ td.num { text-align: right; font-weight: 700; }
 .qr { background: #fff; padding: 12px; border-radius: 12px; }
 .qr svg, .qr img { width: 100%; height: auto; display: block; }
 
+#view { display: flex; flex-direction: column; gap: 16px; }
 #loading { padding: 60px 20px; text-align: center; color: var(--sub); }
 
 /* 画面内の確認ダイアログ */
@@ -141,3 +150,8 @@ td.num { text-align: right; font-weight: 700; }
 .dialog-msg { font-size: 14px; color: var(--sub); line-height: 1.6; white-space: pre-line; }
 .dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
 .btn-danger { background: #C4452B; color: #fff; }
+
+/* 管理者の一覧 */
+.admin-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid #EFE7DA; border-radius: 12px; }
+.admin-row .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-row .btn-small { flex: none; }
