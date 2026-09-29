@@ -183,7 +183,10 @@
       <div id="ex-summary" class="muted">参加者を読み込み中…</div>
       <button id="ex-airdrop" class="btn btn-dark" type="button" disabled>AirDrop で iPad に送る</button>
       <button id="ex-qr" class="btn btn-outline" type="button" disabled>QRコードを表示</button>
-      <button id="ex-reload" class="btn btn-outline btn-small" type="button">最新の参加者に更新</button>
+      <div class="actions-row">
+        <button id="ex-reload" class="btn btn-outline btn-small" type="button">最新の参加者に更新</button>
+        <button id="ex-add" class="btn btn-outline btn-small" type="button">＋ 参加者を手動で追加</button>
+      </div>
     </div>
     <div id="ex-qr-area"></div>
     <div id="ex-list" class="list"></div>`;
@@ -194,18 +197,39 @@
       $('ex-qr-area').innerHTML = '';
       $('ex-summary').textContent = '参加者を読み込み中…';
       try {
-        const data = (await api('exportData', { eventId: id })).data;
-        exportCache = { eventId: id, data };
-        $('ex-summary').innerHTML = `<b>${data.participants.length}人</b>の参加者を送ります。<br>ファイル名：${esc(fileNameOf(data))}`;
-        $('ex-list').innerHTML = data.participants.map((p) => `
-          <div class="person"><div class="name">${esc(p.display_name)} <span class="muted">${esc(p.name)}</span></div>
-          <div class="hobby">${{ male: '男性', female: '女性', none: '—' }[p.gender]} ・ ${p.experience === 'experienced' ? '経験者' : '未経験'}</div></div>`).join('');
-        $('ex-airdrop').disabled = $('ex-qr').disabled = false;
+        show(id, (await api('exportData', { eventId: id })).data);
       } catch (e) { showError(e); }
+    };
+
+    const show = (id, data) => {
+      exportCache = { eventId: id, data };
+      $('ex-summary').innerHTML = `<b>${data.participants.length}人</b>の参加者を送ります。<br>ファイル名：${esc(fileNameOf(data))}`;
+      $('ex-list').innerHTML = data.participants.map((p) => `
+        <div class="person person-row">
+          <div><div class="name">${esc(p.display_name)} <span class="muted">${esc(p.name)}</span></div>
+          <div class="hobby">${{ male: '男性', female: '女性', none: '—' }[p.gender]} ・ ${p.experience === 'experienced' ? '経験者' : '未経験'}</div></div>
+          <button class="btn btn-outline btn-small" data-remove="${esc(p.id)}" type="button">取消</button>
+        </div>`).join('');
+      $('ex-airdrop').disabled = $('ex-qr').disabled = false;
+      $('ex-list').querySelectorAll('[data-remove]').forEach((b) => b.addEventListener('click', async () => {
+        const p = data.participants.find((x) => x.id === b.dataset.remove);
+        const ok = await confirmDialog({
+          title: `${p.display_name} さんの参加を取り消しますか？`,
+          message: 'この開催の参加者から外します（名簿からは消えません）。',
+          ok: '取り消す', danger: true,
+        });
+        if (!ok) return;
+        await busy(b, '…', async () => {
+          const r = await api('removeAttend', { eventId: id, key: p.id });
+          events = r.events;
+          show(id, r.data);
+        });
+      }));
     };
 
     $('ex-event').addEventListener('change', load);
     $('ex-reload').addEventListener('click', load);
+    $('ex-add').addEventListener('click', () => { exportCache = { eventId: $('ex-event').value }; go('roster'); });
 
     // データは先に読み込んでおき、ボタンを押した瞬間に共有を開く（iOSの制約対策）
     $('ex-airdrop').addEventListener('click', async () => {
@@ -246,6 +270,49 @@
 
   const ROLE_LABEL = { owner: 'オーナー', admin: '管理者' };
 
+  /** 名簿に手動で追加するときの入力欄（一般用のプロフィール登録と同じ項目） */
+  function memberForm() {
+    const radio = (name, value, id) =>
+      `<input type="radio" name="m-${name}" id="${id}" value="${value}"><label for="${id}">${value}</label>`;
+    return `
+      <div class="row2">
+        <div class="field"><label class="label" for="m-sei">姓（苗字）<span class="req"> 必須</span></label>
+          <input id="m-sei" type="text" maxlength="15" placeholder="例：山田"></div>
+        <div class="field"><label class="label" for="m-mei">名（名前）<span class="req"> 必須</span></label>
+          <input id="m-mei" type="text" maxlength="15" placeholder="例：健"></div>
+      </div>
+      <div class="field"><label class="label" for="m-nick">ニックネーム<span class="req"> 必須</span></label>
+        <input id="m-nick" type="text" maxlength="12" placeholder="例：やまけん"></div>
+      <div class="field"><div class="label">性別<span class="req"> 必須</span></div>
+        <div class="choices c3">${radio('gender', '男性', 'mg1')}${radio('gender', '女性', 'mg2')}${radio('gender', '回答しない', 'mg3')}</div></div>
+      <div class="field"><div class="label">バドミントン経験<span class="req"> 必須</span></div>
+        <div class="choices c2">${radio('experience', '経験者', 'me1')}${radio('experience', '未経験', 'me2')}</div></div>
+      <div class="field" id="m-years-field" hidden><div class="label">経験年数<span class="req"> 必須</span></div>
+        <div class="choices c2">${radio('years', '1年未満', 'my1')}${radio('years', '1〜3年', 'my2')}${radio('years', '3〜5年', 'my3')}${radio('years', '5年以上', 'my4')}</div></div>
+      <div class="field"><label class="label" for="m-hobby">趣味・ひとこと<span class="opt"> 任意</span></label>
+        <textarea id="m-hobby" maxlength="100"></textarea></div>
+      <button id="m-save" class="btn btn-dark" type="button">名簿に追加する</button>`;
+  }
+
+  function bindMemberForm(onSubmit) {
+    const val = (n) => (document.querySelector(`input[name="m-${n}"]:checked`) || {}).value || '';
+    document.querySelectorAll('input[name="m-experience"]').forEach((el) =>
+      el.addEventListener('change', () => { $('m-years-field').hidden = val('experience') !== '経験者'; }));
+    $('m-save').addEventListener('click', () => busy($('m-save'), '追加中…', async () => {
+      const data = {
+        sei: $('m-sei').value.trim(), mei: $('m-mei').value.trim(), nickname: $('m-nick').value.trim(),
+        gender: val('gender'), experience: val('experience'), years: val('years'), hobby: $('m-hobby').value.trim(),
+      };
+      if (!data.sei) throw userError('姓（苗字）を入力してください');
+      if (!data.mei) throw userError('名（名前）を入力してください');
+      if (!data.nickname) throw userError('ニックネームを入力してください');
+      if (!data.gender) throw userError('性別を選択してください');
+      if (!data.experience) throw userError('経験の有無を選択してください');
+      if (data.experience === '経験者' && !data.years) throw userError('経験年数を選択してください');
+      await onSubmit(data);
+    }));
+  }
+
   async function renderRoster(res) {
     if (!res) {
       $('view').innerHTML = '<div class="muted">読み込み中…</div>';
@@ -253,10 +320,44 @@
     }
     const { people } = res;
     const admins = people.filter((p) => p.role);
-    const others = people.filter((p) => !p.role)
+    const others = people.filter((p) => !p.role && !p.manual)
       .slice().sort((a, b) => a.nickname.localeCompare(b.nickname, 'ja'));
+    const byName = people.slice().sort((a, b) => a.nickname.localeCompare(b.nickname, 'ja'));
+    const manuals = byName.filter((p) => p.manual);
+    const live = events.filter((x) => x.phase !== 'canceled');
+    const curEv = (exportCache && live.find((x) => x.id === exportCache.eventId)) || defaultExportEvent();
     $('view').innerHTML = `
     ${res.notice ? `<div class="msg err">${esc(res.notice)}</div>` : ''}
+    <div id="ro-msg"></div>
+    <div class="card" id="ro-attend-card">
+      <h2>参加者として登録</h2>
+      <div class="muted">LINEで「参加」を押せない人を、主催がかわりに開催の参加者に入れます（受付時間・位置確認なし）。名簿にいない人は、先に下の「ユーザー追加」で追加してください。</div>
+      ${live.length ? `
+      <div class="field">
+        <label class="label" for="ro-ev">開催回</label>
+        <select id="ro-ev">${live.map((x) => `<option value="${esc(x.id)}" ${curEv && x.id === curEv.id ? 'selected' : ''}>${esc(range(x))}（${x.count}人）</option>`).join('')}</select>
+      </div>
+      <div class="field">
+        <label class="label" for="ro-person">参加する人</label>
+        <select id="ro-person"><option value="">名簿から選ぶ</option>${byName.map((p) =>
+          `<option value="${esc(p.key)}" ${p.key === res.addedKey ? 'selected' : ''}>${esc(p.nickname)}（${esc(p.name)}）${p.manual ? ' ・手動' : ''}</option>`).join('')}</select>
+      </div>
+      <button id="ro-attend" class="btn btn-dark" type="button">参加者として登録</button>`
+      : '<div class="muted">登録できる開催がありません。先に「開催設定」で開催を登録してください。</div>'}
+    </div>
+    <div class="card">
+      <h2>ユーザー追加</h2>
+      <div class="muted">LINEを使っていない人などを名簿に追加します。</div>
+      <button id="ro-new" class="btn btn-outline" type="button">＋ ユーザーを追加する</button>
+      <div id="ro-form" hidden>${memberForm()}</div>
+      ${manuals.length ? `
+      <div class="label">手動で追加したユーザー（${manuals.length}人）</div>
+      <div class="list">${manuals.map((p) => `
+        <div class="admin-row">
+          <div class="name"><b>${esc(p.nickname)}</b> <span class="muted">${esc(p.name)} ・ 参加${p.count}回</span></div>
+          <button class="btn btn-outline btn-small" data-del="${esc(p.key)}" type="button">削除</button>
+        </div>`).join('')}</div>` : ''}
+    </div>
     <div class="card">
       <h2>管理者</h2>
       <div class="muted">管理者は主催メニュー（開催設定・参加者を送る・名簿・過去の開催）を使えます。付与・解除すると、その人のLINEのメニューもすぐ切り替わります。</div>
@@ -287,9 +388,53 @@
           <td><b>${esc(p.nickname)}</b></td><td>${esc(p.name)}</td><td>${genderTag(p.gender)}</td>
           <td>${esc(p.experience === '経験者' ? p.years : '未経験')}</td>
           <td class="num">${p.count}回</td><td>${p.last ? esc(day(p.last)) : '—'}</td>
-          <td>${p.role ? `<span class="pill">${ROLE_LABEL[p.role]}</span>` : ''}</td></tr>`).join('')}</tbody>
+          <td>${p.manual ? '<span class="pill">手動</span> ' : ''}${p.role ? `<span class="pill">${ROLE_LABEL[p.role]}</span>` : ''}</td></tr>`).join('')}</tbody>
       </table></div>
     </div>`;
+
+    // ---- 参加者として登録 ----
+    const okMsg = (html) => { $('ro-msg').innerHTML = `<div class="msg ok">${html}</div>`; window.scrollTo(0, 0); };
+    if ($('ro-attend')) {
+      $('ro-attend').addEventListener('click', () => busy($('ro-attend'), '登録中…', async () => {
+        const eventId = $('ro-ev').value, key = $('ro-person').value;
+        if (!key) throw userError('参加する人を選んでください');
+        const p = people.find((x) => x.key === key);
+        events = (await api('addAttend', { eventId, key })).events;
+        exportCache = { eventId };
+        await renderRoster(await api('roster'));
+        const ev = events.find((x) => x.id === eventId);
+        okMsg(`${esc(p.nickname)} さんを ${esc(range(ev))} の参加者に登録しました（${ev.count}人）。
+          <button id="ro-to-export" class="btn btn-dark" type="button" style="margin-top:10px">参加者を iPad へ送る</button>`);
+        $('ro-to-export').addEventListener('click', () => go('export'));
+      }));
+    }
+
+    // ---- ユーザー追加 ----
+    $('ro-new').addEventListener('click', () => { $('ro-form').hidden = false; $('ro-new').hidden = true; $('m-sei').focus(); });
+    bindMemberForm(async (data) => {
+      const r = await api('addMember', { data });
+      await renderRoster(r);
+      okMsg(`${esc(data.nickname)} さんを名簿に追加しました。<br><span style="font-weight:500">続けて「参加者として登録」で開催回を選んで登録できます。</span>`);
+    });
+
+    // ---- 手動で追加したユーザーの削除 ----
+    $('view').querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
+      const p = people.find((x) => x.key === b.dataset.del);
+      const ok = await confirmDialog({
+        title: `${p.nickname} さんを名簿から削除しますか？`,
+        message: p.count
+          ? `参加記録（${p.count}回分）も一緒に削除され、過去の開催の参加者からも消えます。\n元に戻せません。`
+          : '元に戻せません。',
+        ok: '削除する', danger: true,
+      });
+      if (!ok) return;
+      await busy(b, '…', async () => {
+        const r = await api('removeMember', { key: p.key });
+        events = r.events;
+        await renderRoster(r);
+        okMsg(`${esc(p.nickname)} さんを名簿から削除しました。`);
+      });
+    }));
 
     const change = async (btn, key, admin) => {
       const p = people.find((x) => x.key === key);
